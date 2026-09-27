@@ -414,6 +414,13 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                mustRuntimeProfileSHA256("f7388868d68644eff2ef6aa3dee5d0da1bc4f926ef4a8b04f98274bd471df3e6"),
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 	},
+	// Q0 (#1311): one legacy version per merge key. Receipts: the pinned
+	// corpus peaks at 2 live stacks instead of 12 with 83% fewer new nodes, and
+	// the corpus and 144 edit-session inputs keep their locked-C verdicts.
+	"kconfig": {
+		blobSHA256:              mustRuntimeProfileSHA256("e88f42452a8016745cf351ebd8972413a61e68f86060831dfa46b6e55248164b"),
+		fullParseGSSConvergence: true,
+	},
 	"ruby": {
 		blobSHA256:                mustRuntimeProfileSHA256("9f1dc301142506249e7ac340372671f1d5e9ae76b7d378fc049635259bf8fc7f"),
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
