@@ -1374,7 +1374,7 @@ func TestGSSMainCLinkPolicyPreflightMatchesMultiLinkMutationAtLimit(t *testing.T
 	if got := preflight.linkCount(destination); got != maxCMainLinkCount {
 		t.Fatalf("preflight destination links = %d, want %d", got, maxCMainLinkCount)
 	}
-	if got := len(preflight.virtualLink[destination]); got != maxCMainLinkCount-maxMainLinkCount {
+	if got := len(preflight.virtualLinksFor(destination)); got != maxCMainLinkCount-maxMainLinkCount {
 		t.Fatalf("preflight staged links = %d, want %d", got, maxCMainLinkCount-maxMainLinkCount)
 	}
 	if !gssMainMergeNodesSeenMutate(&scratch, destination, source, make(map[gssMergePair]bool)) {
@@ -2349,7 +2349,7 @@ func TestParserRecycleDemotedGSSInvalidatesPointerHolders(t *testing.T) {
 	scratch.merge.cleanZeroFrames = append(scratch.merge.cleanZeroFrames, gssCleanZeroFrame{node: oldHead})
 	scratch.merge.spineVisit = append(scratch.merge.spineVisit, spinePairKey{a: oldHead, b: oldHead.prev})
 	scratch.merge.mergeSeen = map[gssMergePair]bool{{a: oldHead, b: oldHead.prev}: true}
-	scratch.merge.preflight = newGSSMainPreflight(nil)
+	scratch.merge.preflight = acquirePreflightForScratch(&scratch.merge)
 	scratch.merge.preflight.addVirtualLink(oldHead, oldHead.prev, oldHead.entry)
 	equivEpochBefore := scratch.merge.equivEpoch
 	gssPointerEpochBefore := scratch.merge.gssPointerEpoch
@@ -2392,8 +2392,11 @@ func TestParserRecycleDemotedGSSInvalidatesPointerHolders(t *testing.T) {
 	if len(scratch.merge.cleanZeroCache) != 0 {
 		t.Fatalf("clean-zero cache len after invalidation = %d, want 0", len(scratch.merge.cleanZeroCache))
 	}
-	if scratch.merge.preflight == nil || len(scratch.merge.preflight.virtualLink) != 0 || len(scratch.merge.preflight.reachCache) != 0 {
+	if scratch.merge.preflight == nil || scratch.merge.preflight.virtualLinkNodeCount != 0 || len(scratch.merge.preflight.reachCache) != 0 {
 		t.Fatal("preflight pointer holders not reset")
+	}
+	if got, want := scratch.merge.preflightDenseBytes, scratch.merge.preflight.denseBytes; want == 0 || got != want {
+		t.Fatalf("retained preflight dense bytes = %d, want %d", got, want)
 	}
 	if len(parser.cPrefixPath) != 0 {
 		t.Fatalf("parser prefix path len=%d, want 0", len(parser.cPrefixPath))
