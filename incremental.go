@@ -1166,15 +1166,23 @@ func reuseNode(p *Parser, s *glrStack, n *Node, nextState StateID, startState St
 
 	if skipper, ok := ts.(PointSkippableTokenSource); ok {
 		if stateful, ok := ts.(parserStateTokenSource); ok {
-			stateful.SetParserState(nextState)
+			lexState := reuseFollowingTokenLexState(p.language, n, nextState)
+			stateful.SetParserState(lexState)
 			stateful.SetGLRStates(nil)
+			tok := skipper.SkipToByteWithPoint(n.EndByte(), n.EndPoint())
+			stateful.SetParserState(nextState)
+			return tok, reusedBytes, true
 		}
 		return skipper.SkipToByteWithPoint(n.EndByte(), n.EndPoint()), reusedBytes, true
 	}
 	if skipper, ok := ts.(ByteSkippableTokenSource); ok {
 		if stateful, ok := ts.(parserStateTokenSource); ok {
-			stateful.SetParserState(nextState)
+			lexState := reuseFollowingTokenLexState(p.language, n, nextState)
+			stateful.SetParserState(lexState)
 			stateful.SetGLRStates(nil)
+			tok := skipper.SkipToByte(n.EndByte())
+			stateful.SetParserState(nextState)
+			return tok, reusedBytes, true
 		}
 		return skipper.SkipToByte(n.EndByte()), reusedBytes, true
 	}
@@ -1270,6 +1278,32 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 // walks child index 0 down through the tree; the result shares n's
 // StartByte. Returns nil if n is nil or a leftmost leaf cannot be reached
 // (e.g. materialization fails).
+// reuseFollowingTokenLexState uses the state recorded on n's rightmost leaf only
+// when the post-goto state selects the default DFA start state. This preserves
+// pre-reduction lexing where the post-goto mode has no specialization, while
+// retaining established reuse behavior for specialized modes.
+func reuseFollowingTokenLexState(lang *Language, n *Node, postGoto StateID) StateID {
+	if lang == nil || int(postGoto) >= len(lang.LexModes) ||
+		lang.LexModes[postGoto].LexStateIndex() != 0 {
+		return postGoto
+	}
+	if n == nil || n.ChildCount() == 0 {
+		return postGoto
+	}
+	leaf := n
+	for leaf != nil && leaf.ChildCount() > 0 {
+		child := nodeChildAtForReason(leaf, leaf.ChildCount()-1, materializeForEdit)
+		if child == leaf {
+			return postGoto
+		}
+		leaf = child
+	}
+	if leaf == nil || leaf.parseState == 0 || int(leaf.parseState) >= len(lang.LexModes) {
+		return postGoto
+	}
+	return leaf.parseState
+}
+
 func leftmostLeaf(n *Node) *Node {
 	for n != nil && n.ChildCount() > 0 {
 		child := nodeChildAtForReason(n, 0, materializeForEdit)
